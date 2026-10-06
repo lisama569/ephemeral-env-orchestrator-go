@@ -41,14 +41,39 @@ var (
 	ErrInstanceNotFound = errors.New("instance not found")
 	// ErrInstanceTerminal 实例已处于终态，操作被拒绝。
 	ErrInstanceTerminal = errors.New("instance already in terminal state")
+	// ErrEmptyID 申请或续租时传入了空标识，属于非法入参。
+	ErrEmptyID = errors.New("instance id must not be empty")
+	// ErrInvalidLease 租约时长为零、负值或其他无效值，属于非法入参。
+	ErrInvalidLease = errors.New("lease duration must be positive")
+	// ErrLeaseExpired 租约已实际到期（即使实例尚未被扫描回收），不允许再续租。
+	ErrLeaseExpired = errors.New("lease already expired")
 )
+
+// AcquireResult 是一次申请的结论。
+type AcquireResult struct {
+	// Instance 申请得到的实例快照（新实例或被复用的活跃实例）。
+	Instance *EnvInstance
+	// Reused 为 true 表示本次复用了同一标识仍活跃的实例（幂等命中）；
+	// false 表示本次新建了实例并占用了一份配额。
+	Reused bool
+}
+
+// Stats 是某一时刻的容量与状态总览快照。
+type Stats struct {
+	// Quota 配置的非终态实例容量上限。
+	Quota int
+	// Live 当前非终态（占用容量）实例数。
+	Live int
+	// Available 剩余可用容量，即 Quota - Live。
+	Available int
+	// ByState 当前各状态下的实例数量（按标识的最新一代实例统计）。
+	ByState map[EnvState]int
+}
 
 // Config 编排器配置。
 type Config struct {
 	// Quota 允许同时存活（非终态）的实例上限。
 	Quota int
-	// LeaseTTL 租约时长，到期后实例可被回收为 EXPIRED。
-	LeaseTTL time.Duration
 	// Now 可注入的时钟，便于测试；为 nil 时使用 time.Now。
 	Now func() time.Time
 }
