@@ -41,14 +41,18 @@ var (
 	ErrInstanceNotFound = errors.New("instance not found")
 	// ErrInstanceTerminal 实例已处于终态，操作被拒绝。
 	ErrInstanceTerminal = errors.New("instance already in terminal state")
+	// ErrInvalidID 申请标识为空，申请被拒绝。
+	ErrInvalidID = errors.New("invalid (empty) instance id")
+	// ErrInvalidLease 租约时长无效（非正），申请或续租被拒绝。
+	ErrInvalidLease = errors.New("invalid (non-positive) lease duration")
+	// ErrLeaseExpired 租约已经过期，不允许再续租。
+	ErrLeaseExpired = errors.New("lease already expired")
 )
 
 // Config 编排器配置。
 type Config struct {
 	// Quota 允许同时存活（非终态）的实例上限。
 	Quota int
-	// LeaseTTL 租约时长，到期后实例可被回收为 EXPIRED。
-	LeaseTTL time.Duration
 	// Now 可注入的时钟，便于测试；为 nil 时使用 time.Now。
 	Now func() time.Time
 }
@@ -65,4 +69,19 @@ type EnvInstance struct {
 	ExpiresAt time.Time
 	// UpdatedAt 最近一次状态变更时间。
 	UpdatedAt time.Time
+}
+
+// Stats 容量与状态总览：某一时刻各状态实例分布与配额使用情况。
+// 在同一把锁内一次性计算，多个调用方并发查询时结果自洽。
+type Stats struct {
+	// Quota 允许同时存活（非终态）的实例上限。
+	Quota int
+	// Live 当前非终态实例数，即已占用配额。
+	Live int
+	// Free 剩余可用配额（Quota - Live）。
+	Free int
+	// ByState 各生命周期状态下的当前实例数（仅统计每标识的最新一代）。
+	ByState map[EnvState]int
+	// Records 保留的实例记录总数（含各标识的历史终态记录）。
+	Records int
 }
